@@ -4,7 +4,7 @@
 
 ## What the app does
 
-SplitMate is a shared expense tracker — think Splitwise but built from scratch. You create a group (say, "Goa Trip" or "Flat expenses"), add members, and log expenses. The app figures out who owes whom and keeps a running balance for everyone. The interesting part: when someone adds or edits an expense, everyone else in that group sees the balances update **immediately** — no refresh, no polling. There's also a personal dashboard that shows your net balance across all your groups at a glance.
+SplitMate is a shared expense tracker — think Splitwise but built from scratch. You create a group (say, "Goa Trip" or "Flat expenses"), add members, and log expenses. The app figures out who owes whom and keeps a running balance for everyone. The interesting part: when someone adds or edits an expense, everyone else in that group sees the balances update **immediately**, no refresh, no polling. There's also a personal dashboard that shows your net balance across all your groups at a glance.
 
 ---
 
@@ -49,7 +49,7 @@ There are 7 tables. Here's how they fit together:
 ```
 users
   ↓ owns many
-groups  ←→  users  (via group_members — the many-to-many join table)
+groups  ←→  users  (via group_members - the many-to-many join table)
   ↓ has many
 expenses
   ↓ has many
@@ -60,7 +60,7 @@ groups also has:
   → activity_logs  (audit trail of what happened and when)
 
 users also has:
-  → refresh_tokens  (for auth — covered below)
+  → refresh_tokens  (for auth - covered below)
 ```
 
 **In plain words:**
@@ -93,7 +93,7 @@ The shares always sum to exactly the total. No money appears or disappears.
 | Layer | What | Why |
 |---|---|---|
 | Backend | FastAPI (Python) | Async-first, great Pydantic integration for request validation |
-| Database | PostgreSQL | Real constraints and cascade deletes — clean data by design |
+| Database | PostgreSQL | Real constraints and cascade deletes - clean data by design |
 | ORM | SQLAlchemy async | Full async support; pairs well with asyncpg |
 | Frontend | React + Vite + TypeScript | Fast dev experience, type safety across the API |
 | Styling | Tailwind CSS | Utility classes, no specificity wars |
@@ -104,10 +104,10 @@ The shares always sum to exactly the total. No money appears or disappears.
 ## How the refresh token flow works
 
 **What's stored where:**
-- `access_token` — saved in `localStorage`, short-lived (15 minutes), sent as an `Authorization: Bearer` header on every API call
-- `refresh_token` — also saved in `localStorage`, lasts 7 days, sent **only** to the `/auth/refresh` endpoint
+- `access_token` - saved in `localStorage`, short-lived (15 minutes), sent as an `Authorization: Bearer` header on every API call
+- `refresh_token` - also saved in `localStorage`, lasts 7 days, sent **only** to the `/auth/refresh` endpoint
 
-*(Note: in a production app the refresh token should live in an `httpOnly` cookie so JavaScript can't touch it. localStorage was chosen here to keep the demo simple — the trade-off is documented.)*
+*(Note: in a production app the refresh token should live in an `httpOnly` cookie so JavaScript can't touch it. localStorage was chosen here to keep the demo simple - the trade-off is documented.)*
 
 **What happens when the access token expires:**
 
@@ -133,20 +133,20 @@ The client connects like this:
 ws://localhost:8000/ws?token=<access_token>
 ```
 
-The server validates the JWT immediately on connect. If it's invalid or the wrong type, the connection is closed with code `4001` — the client never gets in.
+The server validates the JWT immediately on connect. If it's invalid or the wrong type, the connection is closed with code `4001` - the client never gets in.
 
 **Making sure events only go to the right people:**
 
 The server keeps two data structures:
-- `rooms` — maps each `group_id` to the set of WebSocket connections currently watching that group
-- `ws_groups` — the reverse: maps each connection back to which groups it's in (used for cleanup on disconnect)
+- `rooms` - maps each `group_id` to the set of WebSocket connections currently watching that group
+- `ws_groups` - the reverse: maps each connection back to which groups it's in (used for cleanup on disconnect)
 
 When anything changes (expense added, edited, deleted, or a settlement recorded), the server does:
 ```python
 await manager.broadcast_to_group(group_id, event_type, data)
 ```
 
-This sends the event only to connections registered in that group's room. If you're in Group A, you never see events from Group B — there's no global broadcast.
+This sends the event only to connections registered in that group's room. If you're in Group A, you never see events from Group B - there's no global broadcast.
 
 **Handling disconnects and reconnects:**
 
@@ -159,24 +159,24 @@ This sends the event only to connections registered in that group's room. If you
 
 ## What was hard
 
-**Balance calculation correctness** — The sign convention has to be exactly right: the person who paid gets `+amount`, each person in the split gets `-their_share`. One wrong sign and every balance is wrong. I unit-tested it manually using the seed data before hooking it up to the API.
+**Balance calculation correctness** - The sign convention has to be exactly right: the person who paid gets `+amount`, each person in the split gets `-their_share`. One wrong sign and every balance is wrong. I unit-tested it manually using the seed data before hooking it up to the API.
 
-**Equal split rounding** — The naïve `amount ÷ n` approach loses 1 paise when there's a remainder. The fix (give remainder to the first member) is simple once you see it, but the correctness proof — that shares always sum to the total — took a moment to think through carefully.
+**Equal split rounding** - The naïve `amount ÷ n` approach loses 1 paise when there's a remainder. The fix (give remainder to the first member) is simple once you see it, but the correctness proof - that shares always sum to the total - took a moment to think through carefully.
 
-**WebSocket room scoping** — The first design I had used a single global broadcast, which is both a security issue (wrong people see wrong events) and just noisy. I rethought it into the room model where each group is its own isolated channel.
+**WebSocket room scoping** - The first design I had used a single global broadcast, which is both a security issue (wrong people see wrong events) and just noisy. I rethought it into the room model where each group is its own isolated channel.
 
-**Refresh token race condition** — If two API calls fail at the same time, both try to refresh the token simultaneously. The fix was a request queue: only the first one actually calls `/auth/refresh`, the rest wait in line and replay once the new token is ready.
+**Refresh token race condition** - If two API calls fail at the same time, both try to refresh the token simultaneously. The fix was a request queue: only the first one actually calls `/auth/refresh`, the rest wait in line and replay once the new token is ready.
 
 ---
 
 ## Known issues / what's incomplete
 
-- Refresh token in `localStorage` — real production apps use `httpOnly` cookies to protect against XSS
+- Refresh token in `localStorage` - real production apps use `httpOnly` cookies to protect against XSS
 - No email verification on signup
 - If you're added to a new group while your session is active, your WebSocket won't join that group's room until you refresh the page
-- Pagination UI isn't built yet — the backend supports `page` and `sort_by` parameters but the frontend only ever loads page 1
+- Pagination UI isn't built yet - the backend supports `page` and `sort_by` parameters but the frontend only ever loads page 1
 - No percentage split type (was a stretch goal, not attempted)
-- No automated tests — everything was manually tested via Postman and the seed data
+- No automated tests - everything was manually tested via Postman and the seed data
 
 ---
 
